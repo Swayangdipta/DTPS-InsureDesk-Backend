@@ -15,6 +15,8 @@ const validate = (schema) => {
         message: d.message.replace(/['"]/g, ''),
       }));
 
+      console.log('Validation errors:', errors);
+
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
