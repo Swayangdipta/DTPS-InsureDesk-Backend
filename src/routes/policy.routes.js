@@ -9,7 +9,7 @@ router.use(protect);
 
 // Special routes — must come BEFORE /:id to avoid conflicts
 router.get ('/renewals',     ctrl.getRenewals);
-router.post('/bulk-import', ctrl.bulkImport);
+router.post('/bulk-import',  validate(v.bulkImport), ctrl.bulkImport);
 
 // Standard CRUD
 router.get ('/',     ctrl.getPolicies);
