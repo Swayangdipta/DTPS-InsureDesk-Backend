@@ -48,17 +48,17 @@ const policySchema = new mongoose.Schema(
     systemUpdateStatus: { type: String, trim: true },
     bondStatus: {
       type:    String,
-      enum:    ['Pending', 'Received', 'Dispatched', 'NA'],
+      enum:    ['Pending', 'Received', 'Dispatched', 'NA', 'Issued', 'Returned', 'Hold'],
       default: 'Pending',
     },
     paymentStatus: {
       type:    String,
-      enum:    ['Paid', 'Unpaid', 'Bounced', 'Partial'],
+      enum:    ['Paid', 'Unpaid', 'Bounced', 'Partial', 'Dtps', 'Returned'],
       default: 'Unpaid',
     },
     payoutStatus: {
       type:    String,
-      enum:    ['Due', 'Paid', 'NA'],
+      enum:    ['Due', 'Paid', 'NA', 'Unpaid', 'Returned', 'Hold', 'Received'],
       default: 'Due',
     },
 
