@@ -9,45 +9,38 @@ const positiveNumber = Joi.number().min(0).precision(2);
 
 // ── Create policy ─────────────────────────────────────────
 const createPolicy = Joi.object({
-  // Identity
   serialNumber:     Joi.string().trim().max(50).allow('', null),
   policyHolderName: Joi.string().trim().min(2).max(120).required()
     .messages({ 'any.required': 'Policy holder name is required' }),
 
-  // References
   category:    objectId.required()
     .messages({ 'any.required': 'Category is required' }),
   brokerHouse: objectId.allow('', null),
   company:     objectId.allow('', null),
 
-  // Dates
-  paidDate:        Joi.date().iso().allow(null),
-  policyIssueDate: Joi.date().iso().allow(null),
+  paidDate:        Joi.date().allow(null, ''),
+  policyIssueDate: Joi.date().allow(null, ''),
   issuedMonth:     Joi.string().trim().max(20).allow('', null),
-  doc:             Joi.date().iso().allow(null),
-  nextRenewalDate: Joi.date().iso().allow(null),
+  doc:             Joi.date().allow(null, ''),
+  nextRenewalDate: Joi.date().allow(null, ''),
 
-  // Financials
   premiumWithoutGST: positiveNumber.default(0),
   premiumWithGST:    positiveNumber.default(0),
   sumAssured:        positiveNumber.default(0),
 
-  // Terms
-  premiumPayingTerm: Joi.number().integer().min(0).allow(null),
-  policyTerm:        Joi.number().integer().min(0).allow(null),
+  // allow decimals — Mongoose stores as Number anyway
+  premiumPayingTerm: Joi.number().min(0).allow(null, ''),
+  policyTerm:        Joi.number().min(0).allow(null, ''),
 
-  // Statuses
   systemUpdateStatus: Joi.string().trim().max(50).allow('', null),
   bondStatus:    Joi.string().valid('Pending', 'Received', 'Dispatched', 'NA').default('Pending'),
   paymentStatus: Joi.string().valid('Paid', 'Unpaid', 'Bounced', 'Partial').default('Unpaid'),
   payoutStatus:  Joi.string().valid('Due', 'Paid', 'NA').default('Due'),
 
-  // Advisors
   advisorName:   Joi.string().trim().max(80).allow('', null),
   advisorLevel3: Joi.string().trim().max(80).allow('', null),
   advisorLevel4: Joi.string().trim().max(80).allow('', null),
 
-  // Misc
   remarks:      Joi.string().trim().max(500).allow('', null),
   isBookmarked: Joi.boolean().default(false),
 });
@@ -58,10 +51,52 @@ const updatePolicy = createPolicy.fork(
   (field) => field.optional()
 );
 
-// ── Bulk import (array of policies) ──────────────────────
+// ── Bulk import item — much more lenient than createPolicy ─
+// Only name + category required. Everything else is optional
+// and permissive because Excel data is messy.
+const bulkImportItem = Joi.object({
+  serialNumber:     Joi.string().trim().max(50).allow('', null),
+  policyHolderName: Joi.string().trim().min(1).max(120).required()
+    .messages({ 'any.required': 'Policy holder name is required' }),
+
+  category:    objectId.required()
+    .messages({ 'any.required': 'Category is required' }),
+  brokerHouse: objectId.allow('', null),
+  company:     objectId.allow('', null),
+
+  // Dates — accept anything date-like, no .iso() restriction
+  paidDate:        Joi.date().allow(null, ''),
+  policyIssueDate: Joi.date().allow(null, ''),
+  issuedMonth:     Joi.string().trim().max(30).allow('', null),
+  doc:             Joi.date().allow(null, ''),
+  nextRenewalDate: Joi.date().allow(null, ''),
+
+  // Financials — no precision restriction, coerce strings to numbers
+  premiumWithoutGST: Joi.number().min(0).allow(null, ''),
+  premiumWithGST:    Joi.number().min(0).allow(null, ''),
+  sumAssured:        Joi.number().min(0).allow(null, ''),
+  premiumPayingTerm: Joi.number().min(0).allow(null, ''),
+  policyTerm:        Joi.number().min(0).allow(null, ''),
+
+  systemUpdateStatus: Joi.string().trim().max(100).allow('', null),
+
+  // Status fields — allow any string, fall back gracefully
+  bondStatus:    Joi.string().valid('Pending', 'Received', 'Dispatched', 'NA', 'Issued', 'Returned', 'Hold').allow('', null),
+  paymentStatus: Joi.string().valid('Paid', 'Unpaid', 'Bounced', 'Partial', 'Dtps', 'Returned').allow('', null),
+  payoutStatus:  Joi.string().valid('Due', 'Paid', 'NA', 'Unpaid', 'Returned').allow('', null),
+
+  advisorName:   Joi.string().trim().max(120).allow('', null),
+  advisorLevel3: Joi.string().trim().max(120).allow('', null),
+  advisorLevel4: Joi.string().trim().max(120).allow('', null),
+
+  remarks:      Joi.string().trim().max(1000).allow('', null),
+  isBookmarked: Joi.boolean().default(false),
+}).options({ stripUnknown: true });
+
+// ── Bulk import wrapper ───────────────────────────────────
 const bulkImport = Joi.object({
   policies: Joi.array()
-    .items(createPolicy)
+    .items(bulkImportItem)
     .min(1)
     .max(500)
     .required()
