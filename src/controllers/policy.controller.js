@@ -159,24 +159,37 @@ const toggleBookmark = async (req, res) => {
 const bulkImport = async (req, res) => {
   const { policies } = req.body;
 
-  const withUser = policies.map((p) => ({ ...p, createdBy: req.user._id }));
+  console.log("Incoming policies:", policies);
 
-  // ordered:false — continue even if some docs fail validation
-  const result = await Policy.insertMany(withUser, { ordered: false });
+  const withUser = policies.map((p) => ({
+    ...p,
+    createdBy: req.user._id,
+  }));
 
-  await logActivity({
-    userId:     req.user._id,
-    action:     'BULK_IMPORT',
-    entityType: 'Policy',
-    details:    { count: result.length },
-    ip:         req.ip,
-  });
+  try {
+    const result = await Policy.insertMany(withUser, {
+      ordered: false,
+      rawResult: true, // 🔥 IMPORTANT
+    });
 
-  res.status(201).json({
-    success: true,
-    message: `${result.length} policies imported successfully`,
-    data:    { count: result.length },
-  });
+    const insertedCount = result.insertedCount || result.result?.nInserted || 0;
+
+    res.status(201).json({
+      success: true,
+      message: `${insertedCount} policies imported successfully`,
+      data: result,
+    });
+
+  } catch (err) {
+    console.error("Bulk import error:", err);
+    console.log(err.writeErrors);
+    // 🔥 Show real failures
+    res.status(500).json({
+      success: false,
+      message: "Bulk import partially failed",
+      error: err.writeErrors?.map(e => e.errmsg) || err.message,
+    });
+  }
 };
 
 // ── GET /api/policies/renewals ────────────────────────────
