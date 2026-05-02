@@ -159,12 +159,14 @@ const toggleBookmark = async (req, res) => {
 const bulkImport = async (req, res) => {
   const { policies } = req.body;
 
-  console.log("Incoming policies:", policies);
+  console.log("Incoming policies:", policies.length);
 
   const withUser = policies.map((p) => ({
     ...p,
     createdBy: req.user._id,
   }));
+
+  console.log("Policies with user:", withUser.length);
 
   try {
     const result = await Policy.insertMany(withUser, {
