@@ -159,39 +159,45 @@ const toggleBookmark = async (req, res) => {
 const bulkImport = async (req, res) => {
   const { policies } = req.body;
 
-  console.log("Incoming policies:", policies.length);
+  let successCount = 0;
+  const failed = [];
 
-  const withUser = policies.map((p) => ({
-    ...p,
-    createdBy: req.user._id,
-  }));
+  for (let i = 0; i < policies.length; i++) {
+    const policy = {
+      ...policies[i],
+      createdBy: req.user._id,
+    };
 
-  console.log("Policies with user:", withUser.length);
+    try {
+      const saved = await Policy.create(policy);
 
-  try {
-    const result = await Policy.insertMany(withUser, {
-      ordered: false,
-      rawResult: true, // 🔥 IMPORTANT
-    });
+      console.log(`✅ Saved: ${saved.policyHolderName}`);
+      successCount++;
 
-    const insertedCount = result.insertedCount || result.result?.nInserted || 0;
+    } catch (err) {
+      console.log(`❌ Failed at index ${i}:`, policy.policyHolderName);
+      console.log("Error:", err.message);
 
-    res.status(201).json({
-      success: true,
-      message: `${insertedCount} policies imported successfully`,
-      data: result,
-    });
-
-  } catch (err) {
-    console.error("Bulk import error:", err);
-    console.log(err.writeErrors);
-    // 🔥 Show real failures
-    res.status(500).json({
-      success: false,
-      message: "Bulk import partially failed",
-      error: err.writeErrors?.map(e => e.errmsg) || err.message,
-    });
+      failed.push({
+        index: i,
+        name: policy.policyHolderName,
+        error: err.message,
+      });
+    }
   }
+
+  // 🔥 Check actual DB count
+  const total = await Policy.countDocuments();
+
+  console.log("TOTAL IN DB:", total);
+
+  res.status(201).json({
+    success: true,
+    message: `${successCount} policies inserted`,
+    failedCount: failed.length,
+    failed,
+    totalInDB: total,
+  });
 };
 
 // ── GET /api/policies/renewals ────────────────────────────
